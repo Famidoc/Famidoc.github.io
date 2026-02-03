@@ -9,9 +9,12 @@
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; color: #333; }
+        
+        /* Loading 動畫 */
         .loader { border: 4px solid #f3f3f3; border-top: 4px solid var(--accent); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 20px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
+        /* 容器與佈局 */
         .container { max-width: 800px; margin: 40px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         .hidden { display: none !important; }
         
@@ -20,6 +23,7 @@
         .footer { text-align: center; margin-top: 40px; font-size: 0.8rem; color: #aaa; }
         .fam-text { color: #c0392b; font-style: italic; font-weight: bold; }
 
+        /* 輸入框與按鈕 */
         #login-panel { text-align: center; }
         input[type="password"], input[type="text"], input[type="url"] { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
         
@@ -30,11 +34,16 @@
         button.danger:hover { background: #c0392b; }
         button.small-btn { padding: 5px 10px; font-size: 0.9rem; margin-left: 10px; }
 
+        /* 分頁籤 */
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
         .tab-btn { flex: 1; padding: 10px; background: #eee; border: none; border-radius: 6px; cursor: pointer; color: #555; }
         .tab-btn.active { background: var(--primary); color: white; font-weight: bold; }
 
-        /* ★★★ 新增：列表捲軸設定 ★★★ */
+        /* ★★★ 新增：搜尋框樣式 ★★★ */
+        .search-bar { display: flex; gap: 10px; margin-bottom: 15px; }
+        #search-input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; margin: 0; }
+
+        /* 列表容器 (捲軸設定) */
         #links-container {
             max-height: 500px; /* 超過這個高度就出現捲軸 */
             overflow-y: auto;  /* 自動垂直捲動 */
@@ -43,6 +52,7 @@
             padding: 0 10px;
         }
 
+        /* 列表項目樣式 */
         .link-item { border-bottom: 1px solid #eee; padding: 15px 0; display: flex; justify-content: space-between; align-items: center; }
         .link-info { flex: 1; min-width: 0; /* 防止文字過長撐開 */ }
         .link-title { font-weight: bold; font-size: 1.1rem; color: var(--primary); }
@@ -51,6 +61,7 @@
         .link-actions { display: flex; gap: 8px; flex-shrink: 0; }
         .btn-icon { padding: 6px 12px; font-size: 0.9rem; }
 
+        /* QR Code 彈窗 */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; }
         .modal { background: white; padding: 30px; border-radius: 12px; width: 90%; max-width: 400px; text-align: center; }
         .qr-controls { margin: 15px 0; text-align: left; background: #f9f9f9; padding: 15px; border-radius: 8px; }
@@ -108,7 +119,11 @@
                 </div>
 
                 <div id="tab-list" class="hidden">
-                    <button onclick="loadLinks()" class="secondary" style="font-size:0.8rem; margin-bottom:10px;">🔄 重新整理</button>
+                    <div class="search-bar">
+                        <input type="text" id="search-input" placeholder="🔍 搜尋標題、備註、短碼..." oninput="filterLinks()">
+                        <button onclick="loadLinks()" class="secondary" style="white-space:nowrap;">🔄 重整</button>
+                    </div>
+                    
                     <div id="links-container">
                         <div class="loader"></div>
                     </div>
@@ -140,7 +155,7 @@
 
     <script>
         // ==========================================
-        // ⚠️ 請在此填入您的 GAS 網址 ⚠️
+        // 您的 GAS 網址 (已自動填入)
         const GAS_URL = "https://script.google.com/macros/s/AKfycbzMPzLB_I97-E5H8Qv6WnIkb5vKF5k_41yoSeIkepI50gqbQ69u2roq7jyzx51x4OFr/exec";
         // ==========================================
 
@@ -151,7 +166,11 @@
 
         let qrCodeObj = null;
         let currentQrUrl = "";
+        
+        // ★★★ 新增：用來暫存下載下來的資料，供搜尋使用 ★★★
+        let allLinksData = [];
 
+        // 初始化判斷
         if (id) {
             document.getElementById('redirect-view').classList.remove('hidden');
             fetch(`${GAS_URL}?action=getLink&id=${id}`)
@@ -228,7 +247,6 @@
                 btn.innerText = "建立短網址";
                 if(data.status === "success") {
                     const fullShortUrl = `https://famidoc.github.io/?id=${data.shortId}`;
-                    // ★★★ 新增：直接顯示複製按鈕 ★★★
                     msg.innerHTML = `
                         <div style="color:green; margin-bottom:5px;">成功！</div>
                         <div style="font-weight:bold; font-size:1.1rem; margin-bottom:5px;">${fullShortUrl}</div>
@@ -243,9 +261,15 @@
             });
         }
 
+        // 修改後的 loadLinks：只負責下載資料
         function loadLinks() {
             const container = document.getElementById('links-container');
             container.innerHTML = '<div class="loader"></div>';
+            
+            // 清空搜尋框
+            if(document.getElementById('search-input')) {
+                document.getElementById('search-input').value = "";
+            }
 
             fetch(`${GAS_URL}?action=getAll`)
             .then(r => r.json())
@@ -254,35 +278,70 @@
                     container.innerHTML = "載入失敗";
                     return;
                 }
-                
-                let html = "";
-                resp.data.forEach(item => {
-                    const fullShortUrl = `https://famidoc.github.io/?id=${item.shortId}`;
-                    html += `
-                    <div class="link-item">
-                        <div class="link-info">
-                            <div class="link-title">${item.title || '(無標題)'} <small style="color:#aaa">(${item.clicks} hits)</small></div>
-                            <div class="link-url"><a href="${fullShortUrl}" target="_blank">${fullShortUrl}</a></div>
-                            <div class="link-meta">ID: ${item.shortId} | ${new Date(item.createdDate).toLocaleDateString()} | ${item.note}</div>
-                        </div>
-                        <div class="link-actions">
-                            <button class="btn-icon" onclick="copyToClip('${fullShortUrl}')">複製</button>
-                            <button class="btn-icon secondary" onclick="openQR('${fullShortUrl}')">QR</button>
-                            <button class="btn-icon danger" onclick="deleteLinkItem('${item.shortId}')">🗑️</button>
-                        </div>
-                    </div>`;
-                });
-                container.innerHTML = html;
+                // 儲存資料到全域變數
+                allLinksData = resp.data;
+                // 渲染畫面
+                renderLinks(allLinksData);
             });
         }
 
-        // ★★★ 新增：刪除功能邏輯 ★★★
+        // ★★★ 新增：渲染列表 (負責把資料畫出來) ★★★
+        function renderLinks(data) {
+            const container = document.getElementById('links-container');
+            
+            if(data.length === 0) {
+                container.innerHTML = '<div style="text-align:center; color:#aaa; padding:20px;">沒有找到相符的資料</div>';
+                return;
+            }
+
+            let html = "";
+            data.forEach(item => {
+                const fullShortUrl = `https://famidoc.github.io/?id=${item.shortId}`;
+                html += `
+                <div class="link-item">
+                    <div class="link-info">
+                        <div class="link-title">${item.title || '(無標題)'} <small style="color:#aaa">(${item.clicks} hits)</small></div>
+                        <div class="link-url"><a href="${fullShortUrl}" target="_blank">${fullShortUrl}</a></div>
+                        <div class="link-meta">ID: ${item.shortId} | ${new Date(item.createdDate).toLocaleDateString()} | ${item.note}</div>
+                    </div>
+                    <div class="link-actions">
+                        <button class="btn-icon" onclick="copyToClip('${fullShortUrl}')">複製</button>
+                        <button class="btn-icon secondary" onclick="openQR('${fullShortUrl}')">QR</button>
+                        <button class="btn-icon danger" onclick="deleteLinkItem('${item.shortId}')">🗑️</button>
+                    </div>
+                </div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        // ★★★ 新增：搜尋過濾邏輯 ★★★
+        function filterLinks() {
+            const term = document.getElementById('search-input').value.toLowerCase().trim();
+            
+            // 如果搜尋框是空的，就顯示全部
+            if (!term) {
+                renderLinks(allLinksData);
+                return;
+            }
+
+            // 過濾資料
+            const filtered = allLinksData.filter(item => {
+                const title = (item.title || "").toLowerCase();
+                const note = (item.note || "").toLowerCase();
+                const shortId = (item.shortId || "").toLowerCase();
+                const originalUrl = (item.originalUrl || "").toLowerCase();
+                
+                return title.includes(term) || note.includes(term) || shortId.includes(term) || originalUrl.includes(term);
+            });
+
+            renderLinks(filtered);
+        }
+
         function deleteLinkItem(id) {
             if(!confirm("確定要刪除這個短網址嗎？(此動作無法復原)")) return;
 
-            // 顯示簡單的 Loading
             const container = document.getElementById('links-container');
-            container.innerHTML = '<div class="loader"></div>'; // 或是可以用局部 loading
+            container.innerHTML = '<div class="loader"></div>';
 
             fetch(GAS_URL, {
                 method: "POST",
@@ -291,11 +350,10 @@
             .then(r => r.json())
             .then(data => {
                 if(data.status === "success") {
-                    // 刪除成功，重新載入列表
                     loadLinks(); 
                 } else {
                     alert("刪除失敗: " + data.message);
-                    loadLinks(); // 失敗也重新載入，恢復畫面
+                    loadLinks();
                 }
             });
         }
@@ -304,7 +362,7 @@
             navigator.clipboard.writeText(text).then(() => alert("已複製！"));
         }
 
-        // --- QR Code 相關 (維持不變) ---
+        // --- QR Code 相關 ---
         function initQRCode() {
             qrCodeObj = new QRCodeStyling({
                 width: 250,
