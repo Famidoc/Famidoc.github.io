@@ -39,9 +39,11 @@
         .tab-btn { flex: 1; padding: 10px; background: #eee; border: none; border-radius: 6px; cursor: pointer; color: #555; }
         .tab-btn.active { background: var(--primary); color: white; font-weight: bold; }
 
-        /* ★★★ 新增：搜尋框樣式 ★★★ */
-        .search-bar { display: flex; gap: 10px; margin-bottom: 15px; }
+        /* ★★★ 搜尋框樣式 (優化版) ★★★ */
+        .search-bar { display: flex; gap: 8px; margin-bottom: 15px; align-items: center; }
         #search-input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; margin: 0; }
+        /* 讓搜尋按鈕跟輸入框一樣高 */
+        .search-btn { height: 42px; padding: 0 20px; display: flex; align-items: center; }
 
         /* 列表容器 (捲軸設定) */
         #links-container {
@@ -120,8 +122,9 @@
 
                 <div id="tab-list" class="hidden">
                     <div class="search-bar">
-                        <input type="text" id="search-input" placeholder="🔍 搜尋標題、備註、短碼..." oninput="filterLinks()">
-                        <button onclick="loadLinks()" class="secondary" style="white-space:nowrap;">🔄 重整</button>
+                        <input type="text" id="search-input" placeholder="🔍 搜尋標題、備註..." onkeyup="handleEnter(event)">
+                        <button class="search-btn" onclick="filterLinks()">搜尋</button>
+                        <button class="search-btn secondary" onclick="loadLinks(true)">🔄 重整</button>
                     </div>
                     
                     <div id="links-container">
@@ -167,7 +170,7 @@
         let qrCodeObj = null;
         let currentQrUrl = "";
         
-        // ★★★ 新增：用來暫存下載下來的資料，供搜尋使用 ★★★
+        // ★★★ 用來暫存下載下來的資料 ★★★
         let allLinksData = [];
 
         // 初始化判斷
@@ -208,7 +211,7 @@
             } else {
                 document.querySelector('.tab-btn:nth-child(2)').classList.add('active');
                 document.getElementById('tab-list').classList.remove('hidden');
-                loadLinks();
+                loadLinks(); // 預設載入全部
             }
         }
 
@@ -261,15 +264,16 @@
             });
         }
 
-        // 修改後的 loadLinks：只負責下載資料
-        function loadLinks() {
+        // 修改後的 loadLinks：只負責下載資料，下載完會自動呼叫 filterLinks
+        // 參數 forceRefresh: 如果是 true，代表是使用者按了「重整」按鈕
+        function loadLinks(forceRefresh = false) {
             const container = document.getElementById('links-container');
             container.innerHTML = '<div class="loader"></div>';
             
-            // 清空搜尋框
-            if(document.getElementById('search-input')) {
-                document.getElementById('search-input').value = "";
-            }
+            // 注意：重整時「不要」清空搜尋框，這樣體驗比較好
+            // if(document.getElementById('search-input') && !forceRefresh) {
+            //     document.getElementById('search-input').value = "";
+            // }
 
             fetch(`${GAS_URL}?action=getAll`)
             .then(r => r.json())
@@ -280,12 +284,21 @@
                 }
                 // 儲存資料到全域變數
                 allLinksData = resp.data;
-                // 渲染畫面
-                renderLinks(allLinksData);
+                
+                // ★★★ 下載完畢後，直接呼叫過濾器 ★★★
+                // 這樣如果搜尋框有字，就會直接顯示過濾結果；沒字就會顯示全部
+                filterLinks();
             });
         }
 
-        // ★★★ 新增：渲染列表 (負責把資料畫出來) ★★★
+        // ★★★ 新增：監聽 Enter 鍵 ★★★
+        function handleEnter(event) {
+            if (event.key === "Enter") {
+                filterLinks();
+            }
+        }
+
+        // ★★★ 渲染列表 (負責把資料畫出來) ★★★
         function renderLinks(data) {
             const container = document.getElementById('links-container');
             
@@ -314,10 +327,17 @@
             container.innerHTML = html;
         }
 
-        // ★★★ 新增：搜尋過濾邏輯 ★★★
+        // ★★★ 搜尋過濾邏輯 (現在由按鈕觸發) ★★★
         function filterLinks() {
             const term = document.getElementById('search-input').value.toLowerCase().trim();
             
+            // 防呆：如果資料還沒下載下來，就先下載
+            if (allLinksData.length === 0) {
+                // 這裡不遞迴呼叫 loadLinks，避免無窮迴圈，只是先顯示空的
+                // 通常 loadLinks 會在切換 tab 時就執行了
+                return;
+            }
+
             // 如果搜尋框是空的，就顯示全部
             if (!term) {
                 renderLinks(allLinksData);
@@ -350,10 +370,10 @@
             .then(r => r.json())
             .then(data => {
                 if(data.status === "success") {
-                    loadLinks(); 
+                    loadLinks(true); // 刪除後強制重整，並保留搜尋狀態
                 } else {
                     alert("刪除失敗: " + data.message);
-                    loadLinks();
+                    loadLinks(true);
                 }
             });
         }
