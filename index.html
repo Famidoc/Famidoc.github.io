@@ -24,7 +24,6 @@
         .fam-text { color: #c0392b; font-style: italic; font-weight: bold; }
 
         /* 輸入框與按鈕 */
-        #login-panel { text-align: center; }
         input[type="password"], input[type="text"], input[type="url"] { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
         
         button { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 1rem; transition: 0.2s; }
@@ -42,13 +41,12 @@
         /* 搜尋框樣式 */
         .search-bar { display: flex; gap: 8px; margin-bottom: 15px; align-items: center; }
         #search-input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; margin: 0; }
-        /* 讓搜尋按鈕跟輸入框一樣高 */
         .search-btn { height: 42px; padding: 0 20px; display: flex; align-items: center; }
 
         /* 列表容器 (捲軸設定) */
         #links-container {
-            max-height: 500px; /* 超過這個高度就出現捲軸 */
-            overflow-y: auto;  /* 自動垂直捲動 */
+            max-height: 500px;
+            overflow-y: auto;
             border: 1px solid #eee;
             border-radius: 6px;
             padding: 0 10px;
@@ -56,7 +54,7 @@
 
         /* 列表項目樣式 */
         .link-item { border-bottom: 1px solid #eee; padding: 15px 0; display: flex; justify-content: space-between; align-items: center; }
-        .link-info { flex: 1; min-width: 0; /* 防止文字過長撐開 */ }
+        .link-info { flex: 1; min-width: 0; }
         .link-title { font-weight: bold; font-size: 1.1rem; color: var(--primary); }
         .link-url { font-size: 0.9rem; color: #7f8c8d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .link-meta { font-size: 0.8rem; color: #bdc3c7; margin-top: 4px; }
@@ -85,14 +83,7 @@
                 <p>網址管理系統</p>
             </header>
 
-            <div id="login-panel">
-                <p>請輸入管理密碼進入後台</p>
-                <input type="password" id="admin-pwd" placeholder="Password" style="max-width: 200px;">
-                <br><br>
-                <button onclick="checkLogin()">登入</button>
-            </div>
-
-            <div id="dashboard-panel" class="hidden">
+            <div id="dashboard-panel">
                 <div class="tabs">
                     <button class="tab-btn active" onclick="switchTab('create')">➕ 新增連結</button>
                     <button class="tab-btn" onclick="switchTab('list')">📋 所有列表</button>
@@ -158,11 +149,9 @@
 
     <script>
         // ==========================================
-        // 您的 GAS 網址 (已自動填入)
+        // 您的 GAS 網址
         const GAS_URL = "https://script.google.com/macros/s/AKfycbzMPzLB_I97-E5H8Qv6WnIkb5vKF5k_41yoSeIkepI50gqbQ69u2roq7jyzx51x4OFr/exec";
         // ==========================================
-
-        const ADMIN_PWD = "1234"; 
 
         const urlParams = new URLSearchParams(window.location.search);
         const id = urlParams.get('id');
@@ -175,6 +164,7 @@
 
         // 初始化
         if (id) {
+            // 模式 A: 轉址
             document.getElementById('redirect-view').classList.remove('hidden');
             fetch(`${GAS_URL}?action=getLink&id=${id}`)
                 .then(r => r.json())
@@ -187,18 +177,10 @@
                     }
                 });
         } else {
+            // 模式 B: 後台 (直接顯示，免登入)
             document.getElementById('admin-view').classList.remove('hidden');
-        }
-
-        function checkLogin() {
-            const input = document.getElementById('admin-pwd').value;
-            if (input === ADMIN_PWD) {
-                document.getElementById('login-panel').classList.add('hidden');
-                document.getElementById('dashboard-panel').classList.remove('hidden');
-                initQRCode();
-            } else {
-                alert("密碼錯誤");
-            }
+            // 直接初始化 QR Code 功能
+            initQRCode();
         }
 
         function switchTab(tabName) {
@@ -314,7 +296,7 @@
             container.innerHTML = html;
         }
 
-        // ★★★ 修正後的搜尋邏輯：加上 String() 保護 ★★★
+        // 搜尋過濾
         function filterLinks() {
             const term = document.getElementById('search-input').value.toLowerCase().trim();
             
