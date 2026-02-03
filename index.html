@@ -39,7 +39,7 @@
         .tab-btn { flex: 1; padding: 10px; background: #eee; border: none; border-radius: 6px; cursor: pointer; color: #555; }
         .tab-btn.active { background: var(--primary); color: white; font-weight: bold; }
 
-        /* ★★★ 搜尋框樣式 (優化版) ★★★ */
+        /* 搜尋框樣式 */
         .search-bar { display: flex; gap: 8px; margin-bottom: 15px; align-items: center; }
         #search-input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; margin: 0; }
         /* 讓搜尋按鈕跟輸入框一樣高 */
@@ -170,10 +170,10 @@
         let qrCodeObj = null;
         let currentQrUrl = "";
         
-        // ★★★ 用來暫存下載下來的資料 ★★★
+        // 暫存資料
         let allLinksData = [];
 
-        // 初始化判斷
+        // 初始化
         if (id) {
             document.getElementById('redirect-view').classList.remove('hidden');
             fetch(`${GAS_URL}?action=getLink&id=${id}`)
@@ -211,7 +211,7 @@
             } else {
                 document.querySelector('.tab-btn:nth-child(2)').classList.add('active');
                 document.getElementById('tab-list').classList.remove('hidden');
-                loadLinks(); // 預設載入全部
+                loadLinks(); 
             }
         }
 
@@ -264,17 +264,10 @@
             });
         }
 
-        // 修改後的 loadLinks：只負責下載資料，下載完會自動呼叫 filterLinks
-        // 參數 forceRefresh: 如果是 true，代表是使用者按了「重整」按鈕
         function loadLinks(forceRefresh = false) {
             const container = document.getElementById('links-container');
             container.innerHTML = '<div class="loader"></div>';
             
-            // 注意：重整時「不要」清空搜尋框，這樣體驗比較好
-            // if(document.getElementById('search-input') && !forceRefresh) {
-            //     document.getElementById('search-input').value = "";
-            // }
-
             fetch(`${GAS_URL}?action=getAll`)
             .then(r => r.json())
             .then(resp => {
@@ -282,23 +275,17 @@
                     container.innerHTML = "載入失敗";
                     return;
                 }
-                // 儲存資料到全域變數
                 allLinksData = resp.data;
-                
-                // ★★★ 下載完畢後，直接呼叫過濾器 ★★★
-                // 這樣如果搜尋框有字，就會直接顯示過濾結果；沒字就會顯示全部
-                filterLinks();
+                filterLinks(); // 下載完自動過濾
             });
         }
 
-        // ★★★ 新增：監聽 Enter 鍵 ★★★
         function handleEnter(event) {
             if (event.key === "Enter") {
                 filterLinks();
             }
         }
 
-        // ★★★ 渲染列表 (負責把資料畫出來) ★★★
         function renderLinks(data) {
             const container = document.getElementById('links-container');
             
@@ -327,29 +314,23 @@
             container.innerHTML = html;
         }
 
-        // ★★★ 搜尋過濾邏輯 (現在由按鈕觸發) ★★★
+        // ★★★ 修正後的搜尋邏輯：加上 String() 保護 ★★★
         function filterLinks() {
             const term = document.getElementById('search-input').value.toLowerCase().trim();
             
-            // 防呆：如果資料還沒下載下來，就先下載
-            if (allLinksData.length === 0) {
-                // 這裡不遞迴呼叫 loadLinks，避免無窮迴圈，只是先顯示空的
-                // 通常 loadLinks 會在切換 tab 時就執行了
-                return;
-            }
+            if (allLinksData.length === 0) return;
 
-            // 如果搜尋框是空的，就顯示全部
             if (!term) {
                 renderLinks(allLinksData);
                 return;
             }
 
-            // 過濾資料
             const filtered = allLinksData.filter(item => {
-                const title = (item.title || "").toLowerCase();
-                const note = (item.note || "").toLowerCase();
-                const shortId = (item.shortId || "").toLowerCase();
-                const originalUrl = (item.originalUrl || "").toLowerCase();
+                // 強制轉成字串，避免數字報錯
+                const title = String(item.title || "").toLowerCase();
+                const note = String(item.note || "").toLowerCase();
+                const shortId = String(item.shortId || "").toLowerCase();
+                const originalUrl = String(item.originalUrl || "").toLowerCase();
                 
                 return title.includes(term) || note.includes(term) || shortId.includes(term) || originalUrl.includes(term);
             });
@@ -370,7 +351,7 @@
             .then(r => r.json())
             .then(data => {
                 if(data.status === "success") {
-                    loadLinks(true); // 刪除後強制重整，並保留搜尋狀態
+                    loadLinks(true);
                 } else {
                     alert("刪除失敗: " + data.message);
                     loadLinks(true);
@@ -382,7 +363,6 @@
             navigator.clipboard.writeText(text).then(() => alert("已複製！"));
         }
 
-        // --- QR Code 相關 ---
         function initQRCode() {
             qrCodeObj = new QRCodeStyling({
                 width: 250,
